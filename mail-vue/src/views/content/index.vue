@@ -8,6 +8,38 @@
         <Icon class="icon" @click="changeStar" v-else icon="solar:star-line-duotone" width="18" height="18"/>
       </span>
       <Icon class="icon" v-if="emailStore.contentData.showReply" v-perm="'email:send'"  @click="openReply" icon="la:reply" width="20" height="20" />
+
+      <!-- 翻译功能 -->
+      <div class="translate-actions">
+        <el-select v-if="showTranslateControls" v-model="targetLang" placeholder="选择语言" size="small" class="lang-select">
+          <el-option label="中文" value="zh" />
+          <el-option label="English" value="en" />
+          <el-option label="日本語" value="ja" />
+          <el-option label="한국어" value="ko" />
+          <el-option label="Español" value="es" />
+          <el-option label="Français" value="fr" />
+          <el-option label="Deutsch" value="de" />
+          <el-option label="Русский" value="ru" />
+        </el-select>
+        <Icon
+          v-if="!isTranslated"
+          class="icon translate-icon"
+          icon="tabler:language"
+          width="20"
+          height="20"
+          @click="handleTranslate"
+          :title="$t('translate')"
+        />
+        <Icon
+          v-else
+          class="icon reset-icon"
+          icon="tabler:reload"
+          width="20"
+          height="20"
+          @click="handleReset"
+          :title="$t('reset')"
+        />
+      </div>
     </div>
     <div></div>
     <el-scrollbar class="scrollbar">
@@ -90,6 +122,7 @@ import {useSettingStore} from "@/store/setting.js";
 import {allEmailDelete} from "@/request/all-email.js";
 import {useUiStore} from "@/store/ui.js";
 import {useI18n} from "vue-i18n";
+import axios from 'axios';
 
 const uiStore = useUiStore();
 const settingStore = useSettingStore();
@@ -99,6 +132,14 @@ const router = useRouter()
 const email = emailStore.contentData.email
 const showPreview = ref(false)
 const srcList = reactive([])
+
+// 翻译功能相关
+const isTranslated = ref(false)
+const showTranslateControls = ref(false)
+const targetLang = ref('en')
+const originalContent = ref('')
+const originalText = ref('')
+const translating = ref(false)
 
 const { t } = useI18n()
 watch(() => accountStore.currentAccountId, () => {
@@ -166,6 +207,92 @@ const handleBack = () => {
   router.back()
 }
 
+// 翻译功能
+async function handleTranslate() {
+  if (translating.value) return
+
+  // 保存原始内容
+  if (!originalContent.value && email.content) {
+    originalContent.value = email.content
+  }
+  if (!originalText.value && email.text) {
+    originalText.value = email.text
+  }
+
+  // 显示语言选择和加载提示
+  showTranslateControls.value = true
+  translating.value = true
+
+  const loading = ElMessage({
+    message: t('translating') || '翻译中...',
+    type: 'info',
+    duration: 0
+  })
+
+  try {
+    // 提取需要翻译的文本
+    let textToTranslate = ''
+    if (email.content) {
+      // 从 HTML 中提取文本（简单方法）
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = email.content
+      textToTranslate = tempDiv.textContent || tempDiv.innerText || ''
+    } else if (email.text) {
+      textToTranslate = email.text
+    }
+
+    if (!textToTranslate.trim()) {
+      throw new Error('没有可翻译的内容')
+    }
+
+    // 调用翻译 API
+    const response = await axios.post('/telegram/translate', {
+      text: textToTranslate,
+      targetLang: targetLang.value
+    })
+
+    if (response.data.code === 200) {
+      const translatedText = response.data.data.translatedText
+
+      // 更新显示的内容
+      if (email.content) {
+        email.content = `<div style="white-space: pre-wrap; font-family: inherit; line-height: 1.6;">${translatedText}</div>`
+      } else {
+        email.text = translatedText
+      }
+
+      isTranslated.value = true
+      ElMessage({
+        message: t('translateSuccess') || '翻译成功',
+        type: 'success'
+      })
+    } else {
+      throw new Error(response.data.msg || '翻译失败')
+    }
+  } catch (error) {
+    console.error('翻译错误:', error)
+    ElMessage({
+      message: t('translateFailed') || `翻译失败: ${error.message}`,
+      type: 'error'
+    })
+  } finally {
+    loading.close()
+    translating.value = false
+  }
+}
+
+// 还原原始内容
+function handleReset() {
+  if (originalContent.value) {
+    email.content = originalContent.value
+  }
+  if (originalText.value) {
+    email.text = originalText.value
+  }
+  isTranslated.value = false
+  showTranslateControls.value = false
+}
+
 const handleDelete = () => {
   ElMessageBox.confirm(t('delEmailConfirm'), {
     confirmButtonText: t('confirm'),
@@ -218,6 +345,29 @@ const handleDelete = () => {
   }
   .icon {
     cursor: pointer;
+  }
+  .translate-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    .lang-select {
+      width: 120px;
+    }
+    .translate-icon {
+      color: #667eea;
+      transition: all 0.2s;
+      &:hover {
+        transform: scale(1.1);
+      }
+    }
+    .reset-icon {
+      color: #f56c6c;
+      transition: all 0.2s;
+      &:hover {
+        transform: rotate(180deg);
+      }
+    }
   }
 }
 
