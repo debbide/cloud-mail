@@ -68,6 +68,53 @@ const telegramService = {
 	},
 
 	async _translateChunk(c, text, targetLang) {
+		// 如果文本看起来是 HTML，只翻译纯文本部分
+		const isHTML = /<[^>]+>/.test(text);
+
+		if (isHTML) {
+			// 保留 HTML 结构，只翻译文本节点
+			return await this._translateHTML(c, text, targetLang);
+		}
+
+		// 纯文本直接翻译
+		return await this._translatePlainText(c, text, targetLang);
+	},
+
+	async _translateHTML(c, html, targetLang) {
+		// 简单的 HTML 文本节点翻译
+		// 提取所有文本节点
+		const textNodes = [];
+		const placeholders = [];
+
+		// 用占位符替换文本节点
+		let processedHtml = html.replace(/>([^<]+)</g, (match, text) => {
+			const trimmed = text.trim();
+			if (trimmed && trimmed.length > 0) {
+				const placeholder = `__TEXT_${textNodes.length}__`;
+				textNodes.push(trimmed);
+				placeholders.push(placeholder);
+				return `>${placeholder}<`;
+			}
+			return match;
+		});
+
+		// 翻译所有文本节点
+		if (textNodes.length > 0) {
+			const combinedText = textNodes.join('\n___SEPARATOR___\n');
+			const translatedCombined = await this._translatePlainText(c, combinedText, targetLang);
+			const translatedNodes = translatedCombined.split(/\n___SEPARATOR___\n/);
+
+			// 替换回去
+			placeholders.forEach((placeholder, index) => {
+				const translatedText = translatedNodes[index] || textNodes[index];
+				processedHtml = processedHtml.replace(placeholder, translatedText);
+			});
+		}
+
+		return processedHtml;
+	},
+
+	async _translatePlainText(c, text, targetLang) {
 		// 使用 Cloudflare AI Workers 进行翻译
 		// 如果环境中没有绑定 AI，则使用免费的翻译 API
 		if (c.env.AI) {
