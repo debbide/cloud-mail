@@ -67,13 +67,14 @@ jobs:
           fi
           
           echo "deployment_skipped=false" >> $GITHUB_OUTPUT
-          
+
           CONFIG_FILE="wrangler-action.toml"
-          
+
           if [ -z "$R2_BUCKET_NAME" ]; then
-            sed -i "18,20d" "$CONFIG_FILE"
+            echo "⚠️ R2_BUCKET_NAME is empty, removing R2 configuration..."
+            sed -i '/^\[\[r2_buckets\]\]/,/^bucket_name = /d' "$CONFIG_FILE"
           fi
-          
+
           echo "⚙️ Dynamically updating '$CONFIG_FILE' with binding IDs..."
 
           sed -i "s|\${D1_DATABASE_ID}|${D1_DATABASE_ID}|g" "$CONFIG_FILE"
