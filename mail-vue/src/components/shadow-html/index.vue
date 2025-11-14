@@ -18,6 +18,39 @@ const container = ref(null)
 const contentBox = ref(null)
 let shadowRoot = null
 
+// 检测是否在 Telegram WebApp 中
+function isTelegramWebApp() {
+  return typeof window !== 'undefined' && window.Telegram?.WebApp
+}
+
+// 处理链接点击事件
+function handleLinkClick(e) {
+  const target = e.target.closest('a')
+
+  if (target && target.href) {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const url = target.href
+
+    // 如果在 Telegram WebApp 中，使用 Telegram API 打开链接
+    if (isTelegramWebApp()) {
+      // 尝试在外部浏览器打开
+      try {
+        window.Telegram.WebApp.openLink(url, { try_instant_view: false })
+        console.log('使用 Telegram 外部浏览器打开:', url)
+      } catch (error) {
+        console.error('使用 Telegram API 打开链接失败:', error)
+        // 降级到普通方式
+        window.open(url, '_blank')
+      }
+    } else {
+      // 不在 Telegram 中，正常打开
+      window.open(url, '_blank')
+    }
+  }
+}
+
 function updateContent() {
   if (!shadowRoot) return;
 
@@ -56,6 +89,11 @@ function updateContent() {
       a {
         text-decoration: none;
         color: #0E70DF;
+        cursor: pointer;
+      }
+
+      a:hover {
+        text-decoration: underline;
       }
 
       .shadow-content {
@@ -76,6 +114,12 @@ function updateContent() {
       ${cleanedHtml}
     </div>
   `;
+
+  // 添加链接点击事件监听
+  const shadowContent = shadowRoot.querySelector('.shadow-content')
+  if (shadowContent) {
+    shadowContent.addEventListener('click', handleLinkClick)
+  }
 }
 
 function autoScale() {
