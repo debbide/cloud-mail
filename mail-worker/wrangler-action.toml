@@ -6,6 +6,10 @@ compatibility_date = "2025-06-04"
 [observability]
 enabled = true
 
+# Cloudflare AI 翻译功能绑定
+[ai]
+binding = "AI"
+
 [[d1_databases]]
 binding = "db"
 database_name = "cloud-mail" # 数据库的名称
