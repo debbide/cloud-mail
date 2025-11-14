@@ -36,6 +36,8 @@
 
 - **🔔 Email Push**: Forward received emails to Telegram bots or other email providers.
 
+- **🌍 Email Translation**: ✨ NEW! One-click translation for Telegram email previews, supporting 8 languages
+
 - **📡 Open API**: Supports batch user creation via API and multi-condition email queries
 
 - **📈 Data Visualization**: Use Echarts to visualize system data, including user email growth.
@@ -66,12 +68,12 @@
 
 - **File Storage**: [Cloudflare R2](https://developers.cloudflare.com/r2/)
 
-## 目录结构
+## Directory Structure
 
 ```
 cloud-mail
 ├── mail-worker				    # Backend worker project
-│   ├── src                  
+│   ├── src
 │   │   ├── api	 			    # API layer
 │   │   ├── const  			    # Project constants
 │   │   ├── dao                 # Data access layer
@@ -84,7 +86,7 @@ cloud-mail
 │   │   ├── model			    # Response data models
 │   │   ├── security			# Authentication and authorization
 │   │   ├── service			    # Business logic layer
-│   │   ├── template			# Message templates
+│   │   ├── template			# Message templates (with translation UI)
 │   │   ├── utils			    # Utility functions
 │   │   └── index.js			# Entry point
 │   ├── package.json			# Project dependencies
@@ -108,9 +110,74 @@ cloud-mail
 │   │   ├── main.js			    # Entry JS file
 │   │   └── style.css			# Global styles
 │   ├── package.json			# Project dependencies
-└── └── env.release				# Environment configuration
+│   └── env.release				# Environment configuration
+│
+└── doc                         # Documentation
+    ├── telegram-translate.md   # Translation feature documentation
+    └── test-translate.html     # Translation feature test page
 
 ```
+
+## ✨ New Feature: Telegram Email Translation
+
+### Features
+
+When emails are pushed to Telegram, users can translate the email content directly within the embedded preview page:
+
+- 🌍 **Multi-language Support**: Supports 8 languages including Chinese, English, Japanese, Korean, Spanish, French, German, and Russian
+- 🎨 **Beautiful Interface**: Fixed bottom translation toolbar with purple gradient design
+- ⚡ **One-click Translation**: Translate with a single button click
+- 🔄 **Reset Function**: Restore original email content anytime
+- 🤖 **Smart Engine**: Prioritizes Cloudflare AI, falls back to MyMemory API
+- 📱 **Responsive**: Perfect adaptation for mobile and desktop
+
+### How to Use
+
+1. Receive email push notification in Telegram
+2. Click the "View" button in the message
+3. Find the translation toolbar at the bottom of the email page
+4. Select target language (e.g., Chinese, English)
+5. Click the "Translate" button
+6. Wait 2-5 seconds for the email to be translated
+7. To view the original text, click the "Reset" button
+
+### Configuration
+
+#### Option A: Use Cloudflare AI (Recommended)
+
+Add to `mail-worker/wrangler.toml`:
+
+```toml
+[ai]
+binding = "AI"
+```
+
+**Benefits:**
+- Free quota: 10,000 translations/day
+- High translation quality
+- Fast response time
+
+#### Option B: Use Default Fallback
+
+No configuration needed—the system automatically uses MyMemory free translation API.
+
+**Features:**
+- Completely free
+- 1,000 characters/day/IP
+- Average translation quality
+
+### Technical Implementation
+
+- **Frontend UI**: Translation UI integrated in email templates at `mail-worker/src/template/`
+- **Translation API**: `POST /api/telegram/translate`
+- **Translation Service**: `mail-worker/src/service/telegram-service.js`
+- **Dual Engine**: Cloudflare AI → MyMemory API → Return original text
+
+### Documentation
+
+View full documentation: [doc/telegram-translate.md](doc/telegram-translate.md)
+
+Test page: [doc/test-translate.html](doc/test-translate.html)
 
 ## Support
 

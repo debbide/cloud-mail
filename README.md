@@ -43,7 +43,9 @@
 
 - **🔔 邮件推送**：接收邮件后可以转发到TG机器人或其他服务商邮箱
 
-- **📡 开放API**：支持使用API批量生成用户，多条件查询邮件 
+- **🌍 邮件翻译**：✨ NEW! Telegram 推送邮件支持一键翻译，支持8种语言互译
+
+- **📡 开放API**：支持使用API批量生成用户，多条件查询邮件
 
 - **📈 数据可视化**：使用Echarts对系统数据详情，用户邮件增长可视化显示
 
@@ -80,8 +82,8 @@
 ```
 cloud-mail
 ├── mail-worker				    # worker后端项目
-│   ├── src                  
-│   │   ├── api	 			    # api接口层			
+│   ├── src
+│   │   ├── api	 			    # api接口层
 │   │   ├── const  			    # 项目常量
 │   │   ├── dao                 # 数据访问层
 │   │   ├── email			    # 邮件处理接收
@@ -93,7 +95,7 @@ cloud-mail
 │   │   ├── model			    # 响应体数据封装
 │   │   ├── security			# 身份权限认证
 │   │   ├── service			    # 业务服务层
-│   │   ├── template			# 消息模板
+│   │   ├── template			# 消息模板（含翻译界面）
 │   │   ├── utils			    # 工具类
 │   │   └── index.js			# 入口文件
 │   ├── pageckge.json			# 项目依赖
@@ -117,8 +119,73 @@ cloud-mail
 │   │   ├── main.js			    # 入口js
 │   │   └── style.css			# 全局css
 │   ├── package.json			# 项目依赖
-└── └── env.release				# 项目配置
+│   └── env.release				# 项目配置
+│
+└── doc                         # 文档目录
+    ├── telegram-translate.md   # 翻译功能详细文档
+    └── test-translate.html     # 翻译功能测试页面
 ```
+
+## ✨ 新功能：Telegram 邮件翻译
+
+### 功能特点
+
+当邮件推送到 Telegram 时，用户可以直接在内嵌页面中翻译邮件内容：
+
+- 🌍 **多语言支持**：支持中文、英文、日语、韩语、西班牙语、法语、德语、俄语 8 种语言
+- 🎨 **美观界面**：底部固定翻译工具栏，紫色渐变设计
+- ⚡ **一键翻译**：点击按钮即可实时翻译
+- 🔄 **还原功能**：支持还原到原始邮件内容
+- 🤖 **智能引擎**：优先使用 Cloudflare AI，备用 MyMemory API
+- 📱 **响应式**：完美适配移动端和桌面端
+
+### 使用方法
+
+1. 在 Telegram 中收到邮件推送通知
+2. 点击消息中的「查看」按钮
+3. 在打开的邮件页面底部找到翻译工具栏
+4. 选择目标语言（如：中文、英文等）
+5. 点击「翻译 Translate」按钮
+6. 等待 2-5 秒，邮件内容将被翻译
+7. 如需查看原文，点击「还原 Reset」按钮
+
+### 配置说明
+
+#### 方案 A：使用 Cloudflare AI（推荐）
+
+在 `mail-worker/wrangler.toml` 中添加：
+
+```toml
+[ai]
+binding = "AI"
+```
+
+**优势：**
+- 免费额度：10,000 次/天
+- 翻译质量高
+- 响应速度快
+
+#### 方案 B：使用默认备用方案
+
+无需配置，系统会自动使用 MyMemory 免费翻译 API。
+
+**特点：**
+- 完全免费
+- 1,000 字符/天/IP
+- 翻译质量一般
+
+### 技术实现
+
+- **前端界面**：在 `mail-worker/src/template/` 中的邮件模板集成翻译 UI
+- **翻译 API**：`POST /api/telegram/translate`
+- **翻译服务**：`mail-worker/src/service/telegram-service.js`
+- **双层引擎**：Cloudflare AI → MyMemory API → 返回原文
+
+### 详细文档
+
+查看完整文档：[doc/telegram-translate.md](doc/telegram-translate.md)
+
+测试页面：[doc/test-translate.html](doc/test-translate.html)
 
 ## 赞助
 
