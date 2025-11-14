@@ -76,25 +76,17 @@ jobs:
           
           echo "⚙️ Dynamically updating '$CONFIG_FILE' with binding IDs..."
 
-          # Escape special characters in variables for sed
-          DOMAIN_ESCAPED=$(printf '%s\n' "$DOMAIN" | sed 's/[[\.*^$/]/\\&/g')
-          ADMIN_ESCAPED=$(printf '%s\n' "$ADMIN" | sed 's/[[\.*^$/]/\\&/g')
-          JWT_SECRET_ESCAPED=$(printf '%s\n' "$JWT_SECRET" | sed 's/[[\.*^$/]/\\&/g')
-          LINUXDO_CLIENT_ID_ESCAPED=$(printf '%s\n' "$LINUXDO_CLIENT_ID" | sed 's/[[\.*^$/]/\\&/g')
-          LINUXDO_CLIENT_SECRET_ESCAPED=$(printf '%s\n' "$LINUXDO_CLIENT_SECRET" | sed 's/[[\.*^$/]/\\&/g')
-          LINUXDO_CALLBACK_URL_ESCAPED=$(printf '%s\n' "$LINUXDO_CALLBACK_URL" | sed 's/[[\.*^$/]/\\&/g')
-          LINUXDO_SWITCH_ESCAPED=$(printf '%s\n' "$LINUXDO_SWITCH" | sed 's/[[\.*^$/]/\\&/g')
-
-          sed -i "s|\${D1_DATABASE_ID}|${D1_DATABASE_ID}|g" "$CONFIG_FILE"
-          sed -i "s|\${KV_NAMESPACE_ID}|${KV_NAMESPACE_ID}|g" "$CONFIG_FILE"
-          sed -i "s|\${R2_BUCKET_NAME}|${R2_BUCKET_NAME}|g" "$CONFIG_FILE"
-          sed -i "s|\"\${DOMAIN}\"|${DOMAIN_ESCAPED}|g" "$CONFIG_FILE"
-          sed -i "s|\${ADMIN}|${ADMIN_ESCAPED}|g" "$CONFIG_FILE"
-          sed -i "s|\${JWT_SECRET}|${JWT_SECRET_ESCAPED}|g" "$CONFIG_FILE"
-          sed -i "s|\${LINUXDO_CLIENT_ID}|${LINUXDO_CLIENT_ID_ESCAPED}|g" "$CONFIG_FILE"
-          sed -i "s|\${LINUXDO_CLIENT_SECRET}|${LINUXDO_CLIENT_SECRET_ESCAPED}|g" "$CONFIG_FILE"
-          sed -i "s|\${LINUXDO_CALLBACK_URL}|${LINUXDO_CALLBACK_URL_ESCAPED}|g" "$CONFIG_FILE"
-          sed -i "s|\${LINUXDO_SWITCH}|${LINUXDO_SWITCH_ESCAPED}|g" "$CONFIG_FILE"
+          # Use a safer approach with awk to avoid sed special character issues
+          awk -v d1="$D1_DATABASE_ID" '{gsub(/\$\{D1_DATABASE_ID\}/, d1)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v kv="$KV_NAMESPACE_ID" '{gsub(/\$\{KV_NAMESPACE_ID\}/, kv)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v r2="$R2_BUCKET_NAME" '{gsub(/\$\{R2_BUCKET_NAME\}/, r2)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v domain="$DOMAIN" '{gsub(/"\$\{DOMAIN\}"/, domain)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v admin="$ADMIN" '{gsub(/\$\{ADMIN\}/, admin)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v jwt="$JWT_SECRET" '{gsub(/\$\{JWT_SECRET\}/, jwt)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v clientid="$LINUXDO_CLIENT_ID" '{gsub(/\$\{LINUXDO_CLIENT_ID\}/, clientid)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v secret="$LINUXDO_CLIENT_SECRET" '{gsub(/\$\{LINUXDO_CLIENT_SECRET\}/, secret)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v callback="$LINUXDO_CALLBACK_URL" '{gsub(/\$\{LINUXDO_CALLBACK_URL\}/, callback)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          awk -v switch="$LINUXDO_SWITCH" '{gsub(/\$\{LINUXDO_SWITCH\}/, switch)}1' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
 
           echo "🔍 Debug: Checking configuration after replacement..."
           echo "R2_BUCKET_NAME value: '$R2_BUCKET_NAME'"
