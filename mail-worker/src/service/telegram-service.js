@@ -136,22 +136,38 @@ const telegramService = {
 		if (c.env.AI) {
 			try {
 				console.log('[翻译] 使用 Cloudflare AI 翻译');
+				console.log('[翻译] 输入文本长度:', text.length);
+				console.log('[翻译] 输入文本前50字符:', text.substring(0, 50));
+
 				const response = await c.env.AI.run('@cf/meta/m2m100-1.2b', {
 					text: text,
-					source_lang: 'auto',
-					target_lang: targetLang
+					source_lang: 'en',
+					target_lang: 'zh'
 				});
 
-				console.log('[翻译] CF AI 响应:', response);
-				return response.translated_text || text;
+				console.log('[翻译] CF AI 完整响应:', JSON.stringify(response));
+				console.log('[翻译] 响应类型:', typeof response);
+				console.log('[翻译] translated_text 字段:', response?.translated_text);
+
+				if (response && response.translated_text) {
+					console.log('[翻译] 翻译成功，返回译文');
+					return response.translated_text;
+				} else {
+					console.error('[翻译] AI 返回的响应中没有 translated_text 字段');
+					throw new Error('AI 响应格式不正确');
+				}
 			} catch (error) {
-				console.error('Cloudflare AI 翻译失败:', error);
+				console.error('[翻译] Cloudflare AI 翻译失败 - 错误类型:', error.constructor.name);
+				console.error('[翻译] Cloudflare AI 翻译失败 - 错误消息:', error.message);
+				console.error('[翻译] Cloudflare AI 翻译失败 - 错误堆栈:', error.stack);
+				// 抛出错误而不是静默失败
+				throw new Error(`AI翻译失败: ${error.message}`);
 			}
 		}
 
 		// 备用方案：使用 LibreTranslate API (需要部署或使用公共实例)
 		// 或者使用其他免费翻译服务
-		console.log('[翻译] 使用备用翻译服务');
+		console.log('[翻译] 没有 AI 绑定，使用备用翻译服务');
 		return await this._fallbackTranslate(text, targetLang);
 	},
 
