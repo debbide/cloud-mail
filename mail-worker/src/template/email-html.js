@@ -239,21 +239,21 @@ export default function emailHtmlTemplate(html, domain) {
                 const shadowRoot = container.shadowRoot;
                 const shadowContent = shadowRoot.querySelector('.shadow-content');
 
-                // 提取文本内容
-                const textContent = shadowContent.innerText || shadowContent.textContent;
+                // 提取HTML内容（保留结构）
+                const htmlContent = shadowContent.innerHTML;
 
-                if (!textContent.trim()) {
+                if (!htmlContent.trim()) {
                     throw new Error('没有可翻译的内容');
                 }
 
-                // 调用翻译API
+                // 调用翻译API，传递HTML内容
                 const response = await fetch('/api/telegram/translate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        text: textContent,
+                        text: htmlContent,
                         targetLang: targetLang
                     })
                 });
@@ -268,9 +268,9 @@ export default function emailHtmlTemplate(html, domain) {
                     throw new Error(data.msg || '翻译失败');
                 }
 
-                // 保存当前HTML并更新为翻译后的内容
-                const translatedText = data.data.translatedText;
-                currentHtml = \`<div style="white-space: pre-wrap; font-family: inherit; line-height: 1.6;">\${translatedText}</div>\`;
+                // 更新为翻译后的HTML内容（保留所有链接和格式）
+                const translatedHtml = data.data.translatedText;
+                currentHtml = translatedHtml;
 
                 renderHTML(currentHtml);
 
