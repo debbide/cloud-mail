@@ -102,18 +102,21 @@ const telegramService = {
 
 		console.log('[翻译] 提取了', textNodes.length, '个文本节点');
 
-		// 翻译所有文本节点
+		// 逐个翻译文本节点（避免分隔符问题）
 		if (textNodes.length > 0) {
-			const combinedText = textNodes.join('\n___SEPARATOR___\n');
-			console.log('[翻译] 合并文本长度:', combinedText.length);
-			console.log('[翻译] 前100个字符:', combinedText.substring(0, 100));
+			const translatedNodes = [];
 
-			const translatedCombined = await this._translatePlainText(c, combinedText, targetLang);
-			console.log('[翻译] 翻译结果长度:', translatedCombined.length);
-			console.log('[翻译] 翻译后前100个字符:', translatedCombined.substring(0, 100));
-
-			const translatedNodes = translatedCombined.split(/\n___SEPARATOR___\n/);
-			console.log('[翻译] 分割后节点数:', translatedNodes.length);
+			for (let i = 0; i < textNodes.length; i++) {
+				console.log(`[翻译] 正在翻译第 ${i + 1}/${textNodes.length} 个节点`);
+				try {
+					const translated = await this._translatePlainText(c, textNodes[i], targetLang);
+					translatedNodes.push(translated);
+				} catch (error) {
+					console.error(`[翻译] 第 ${i + 1} 个节点翻译失败:`, error.message);
+					// 如果翻译失败，使用原文
+					translatedNodes.push(textNodes[i]);
+				}
+			}
 
 			// 替换回去
 			placeholders.forEach((placeholder, index) => {
