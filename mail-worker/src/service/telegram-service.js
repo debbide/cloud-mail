@@ -131,52 +131,173 @@ const telegramService = {
 	},
 
 	async _translatePlainText(c, text, targetLang) {
-		// 使用 Cloudflare AI Workers 进行翻译
-		// 如果环境中没有绑定 AI，则使用免费的翻译 API
+		// 获取翻译配置
+		const { translateProvider, translateApiKey, translateEnabled } = await settingService.query(c);
+
 		console.log('[翻译] _translatePlainText 被调用, targetLang:', targetLang);
-		console.log('[翻译] 是否有 AI 绑定:', !!c.env.AI);
+		console.log('[翻译] 翻译配置 - provider:', translateProvider, ', enabled:', translateEnabled);
 
-		if (c.env.AI) {
-			try {
-				console.log('[翻译] 使用 Cloudflare AI 翻译');
-				console.log('[翻译] 输入文本长度:', text.length);
-				console.log('[翻译] 输入文本前50字符:', text.substring(0, 50));
-
-				const response = await c.env.AI.run('@cf/meta/m2m100-1.2b', {
-					text: text,
-					source_lang: 'en',
-					target_lang: 'zh'
-				});
-
-				console.log('[翻译] CF AI 完整响应:', JSON.stringify(response));
-				console.log('[翻译] 响应类型:', typeof response);
-				console.log('[翻译] translated_text 字段:', response?.translated_text);
-
-				if (response && response.translated_text) {
-					console.log('[翻译] 翻译成功，返回译文');
-					return response.translated_text;
-				} else {
-					console.error('[翻译] AI 返回的响应中没有 translated_text 字段');
-					throw new Error('AI 响应格式不正确');
-				}
-			} catch (error) {
-				console.error('[翻译] Cloudflare AI 翻译失败 - 错误类型:', error.constructor.name);
-				console.error('[翻译] Cloudflare AI 翻译失败 - 错误消息:', error.message);
-				console.error('[翻译] Cloudflare AI 翻译失败 - 错误堆栈:', error.stack);
-				// 抛出错误而不是静默失败
-				throw new Error(`AI翻译失败: ${error.message}`);
-			}
+		// 如果翻译功能未启用，返回原文
+		if (!translateEnabled) {
+			console.log('[翻译] 翻译功能已禁用');
+			return text;
 		}
 
-		// 备用方案：使用 LibreTranslate API (需要部署或使用公共实例)
-		// 或者使用其他免费翻译服务
-		console.log('[翻译] 没有 AI 绑定，使用备用翻译服务');
-		return await this._fallbackTranslate(text, targetLang);
+		// 根据配置选择翻译服务
+		switch (translateProvider) {
+			case 'cloudflare':
+				return await this._translateWithCloudflare(c, text, targetLang);
+
+			case 'deepl':
+				if (!translateApiKey) {
+					console.warn('[翻译] DeepL API 密钥未配置，降级到 Cloudflare');
+					return await this._translateWithCloudflare(c, text, targetLang);
+				}
+				return await this._translateWithDeepL(translateApiKey, text, targetLang);
+
+			case 'google':
+				if (!translateApiKey) {
+					console.warn('[翻译] Google API 密钥未配置，降级到 Cloudflare');
+					return await this._translateWithCloudflare(c, text, targetLang);
+				}
+				return await this._translateWithGoogle(translateApiKey, text, targetLang);
+
+			case 'libre':
+				return await this._translateWithLibre(text, targetLang);
+
+			default:
+				console.log('[翻译] 未知的翻译服务提供商，使用 Cloudflare');
+				return await this._translateWithCloudflare(c, text, targetLang);
+		}
 	},
 
-	async _fallbackTranslate(text, targetLang) {
+	async _translateWithCloudflare(c, text, targetLang) {
+		console.log('[翻译] 使用 Cloudflare AI 翻译');
+		console.log('[翻译] 是否有 AI 绑定:', !!c.env.AI);
+
+		if (!c.env.AI) {
+			console.warn('[翻译] 没有 AI 绑定，降级到备用翻译');
+			return await this._translateWithLibre(text, targetLang);
+		}
+
+		try {
+			console.log('[翻译] 输入文本长度:', text.length);
+			console.log('[翻译] 输入文本前50字符:', text.substring(0, 50));
+
+			const response = await c.env.AI.run('@cf/meta/m2m100-1.2b', {
+				text: text,
+				source_lang: 'en',
+				target_lang: 'zh'
+			});
+
+			console.log('[翻译] CF AI 完整响应:', JSON.stringify(response));
+			console.log('[翻译] 响应类型:', typeof response);
+			console.log('[翻译] translated_text 字段:', response?.translated_text);
+
+			if (response && response.translated_text) {
+				console.log('[翻译] 翻译成功，返回译文');
+				return response.translated_text;
+			} else {
+				console.error('[翻译] AI 返回的响应中没有 translated_text 字段');
+				throw new Error('AI 响应格式不正确');
+			}
+		} catch (error) {
+			console.error('[翻译] Cloudflare AI 翻译失败 - 错误类型:', error.constructor.name);
+			console.error('[翻译] Cloudflare AI 翻译失败 - 错误消息:', error.message);
+			console.error('[翻译] Cloudflare AI 翻译失败 - 错误堆栈:', error.stack);
+			// 抛出错误而不是静默失败
+			throw new Error(`AI翻译失败: ${error.message}`);
+		}
+	},
+
+	async _translateWithDeepL(apiKey, text, targetLang) {
+		try {
+			console.log('[翻译] 使用 DeepL API 翻译');
+
+			// DeepL 语言代码转换
+			const deeplLangMap = {
+				'zh': 'ZH',
+				'en': 'EN',
+				'ja': 'JA',
+				'ko': 'KO',
+				'es': 'ES',
+				'fr': 'FR',
+				'de': 'DE',
+				'ru': 'RU'
+			};
+
+			const targetLanguage = deeplLangMap[targetLang] || 'ZH';
+
+			const response = await fetch('https://api-free.deepl.com/v2/translate', {
+				method: 'POST',
+				headers: {
+					'Authorization': `DeepL-Auth-Key ${apiKey}`,
+					'Content-Type': 'application/x-www-form-urlencoded'
+				},
+				body: new URLSearchParams({
+					'text': text,
+					'target_lang': targetLanguage
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error(`DeepL API 响应错误: ${response.status}`);
+			}
+
+			const data = await response.json();
+
+			if (data.translations && data.translations.length > 0) {
+				console.log('[翻译] DeepL 翻译成功');
+				return data.translations[0].text;
+			}
+
+			throw new Error('DeepL API 返回数据格式不正确');
+		} catch (error) {
+			console.error('[翻译] DeepL 翻译失败:', error.message);
+			throw error;
+		}
+	},
+
+	async _translateWithGoogle(apiKey, text, targetLang) {
+		try {
+			console.log('[翻译] 使用 Google Translate API 翻译');
+
+			const response = await fetch(
+				`https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						q: text,
+						target: targetLang
+					})
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error(`Google API 响应错误: ${response.status}`);
+			}
+
+			const data = await response.json();
+
+			if (data.data && data.data.translations && data.data.translations.length > 0) {
+				console.log('[翻译] Google 翻译成功');
+				return data.data.translations[0].translatedText;
+			}
+
+			throw new Error('Google API 返回数据格式不正确');
+		} catch (error) {
+			console.error('[翻译] Google 翻译失败:', error.message);
+			throw error;
+		}
+	},
+
+	async _translateWithLibre(text, targetLang) {
 		// 备用翻译方案 - 使用免费的 MyMemory API
 		try {
+			console.log('[翻译] 使用 LibreTranslate/MyMemory API 翻译');
 			const encodedText = encodeURIComponent(text);
 			const langPair = `auto|${targetLang}`;
 			const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=${langPair}`;
@@ -199,7 +320,7 @@ const telegramService = {
 
 			throw new Error('翻译服务返回错误');
 		} catch (error) {
-			console.error('备用翻译失败:', error);
+			console.error('[翻译] 备用翻译失败:', error);
 			// 如果所有翻译方案都失败，返回原文
 			return text;
 		}

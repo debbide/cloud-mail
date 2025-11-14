@@ -266,6 +266,50 @@
             </div>
           </div>
 
+          <!-- Translation Settings Card -->
+          <div class="settings-card">
+            <div class="card-title">{{ $t('translateSetting') || '翻译设置' }}</div>
+            <div class="card-content">
+              <div class="setting-item">
+                <div><span>{{ $t('translateFunction') || '翻译功能' }}</span></div>
+                <div>
+                  <el-switch @change="change" :before-change="beforeChange" :active-value="1" :inactive-value="0"
+                             v-model="setting.translateEnabled"/>
+                </div>
+              </div>
+              <div class="setting-item">
+                <div>
+                  <span>{{ $t('translateProvider') || '翻译服务商' }}</span>
+                  <el-tooltip effect="dark" :content="$t('translateProviderDesc') || 'Cloudflare 免费，其他服务需要 API 密钥'">
+                    <Icon class="warning" icon="fe:warning" width="18" height="18"/>
+                  </el-tooltip>
+                </div>
+                <div>
+                  <el-select
+                      @change="change"
+                      style="width: 140px;"
+                      v-model="setting.translateProvider"
+                      placeholder="Select"
+                  >
+                    <el-option label="Cloudflare AI" value="cloudflare" />
+                    <el-option label="DeepL" value="deepl" />
+                    <el-option label="Google Translate" value="google" />
+                    <el-option label="LibreTranslate" value="libre" />
+                  </el-select>
+                </div>
+              </div>
+              <div class="setting-item" v-if="setting.translateProvider !== 'cloudflare' && setting.translateProvider !== 'libre'">
+                <div><span>{{ $t('translateApiKey') || 'API 密钥' }}</span></div>
+                <div class="api-key">
+                  <span>{{ setting.translateApiKey || $t('notSet') || '未设置' }}</span>
+                  <el-button class="opt-button" size="small" type="primary" @click="translateApiKeyShow = true">
+                    <Icon icon="lsicon:edit-outline" width="16" height="16"/>
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Turnstile Verification Card -->
           <div class="settings-card">
             <div class="card-title">{{ $t('turnstileSetting') }}</div>
@@ -432,6 +476,13 @@
         <form>
           <el-input type="text" :placeholder="$t('domainDesc')" v-model="r2DomainInput"/>
           <el-button type="primary" :loading="settingLoading" @click="saveR2domain">{{ $t('save') }}</el-button>
+        </form>
+      </el-dialog>
+      <el-dialog v-model="translateApiKeyShow" :title="$t('translateApiKeySetting') || '配置翻译 API 密钥'" width="340"
+                 @closed="translateApiKeyForm.translateApiKey = ''">
+        <form>
+          <el-input type="password" :placeholder="$t('translateApiKeyPlaceholder') || '输入 API 密钥'" show-password v-model="translateApiKeyForm.translateApiKey"/>
+          <el-button type="primary" :loading="settingLoading" @click="saveTranslateApiKey">{{ $t('save') }}</el-button>
         </form>
       </el-dialog>
       <el-dialog v-model="turnstileShow" :title="$t('addTurnstileSecret')" width="340"
@@ -793,6 +844,11 @@ const resendTokenForm = reactive({
 const turnstileForm = reactive({
   siteKey: '',
   secretKey: ''
+})
+
+const translateApiKeyShow = ref(false)
+const translateApiKeyForm = reactive({
+  translateApiKey: ''
 })
 
 const s3 = reactive({
@@ -1176,6 +1232,13 @@ function saveTurnstileKey() {
   settingForm.siteKey = turnstileForm.siteKey
   settingForm.secretKey = turnstileForm.secretKey
   editSetting(settingForm)
+}
+
+function saveTranslateApiKey() {
+  const settingForm = {}
+  settingForm.translateApiKey = translateApiKeyForm.translateApiKey
+  editSetting(settingForm)
+  translateApiKeyShow.value = false
 }
 
 async function saveBackground() {

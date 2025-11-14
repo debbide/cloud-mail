@@ -24,8 +24,21 @@ const init = {
 		await this.v2DB(c);
 		await this.v2_3DB(c);
 		await this.v2_4DB(c);
+		await this.v2_5DB(c);
 		await settingService.refresh(c);
 		return c.text(t('initSuccess'));
+	},
+
+	async v2_5DB(c) {
+		try {
+			await c.env.db.batch([
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_provider TEXT NOT NULL DEFAULT 'cloudflare';`),
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_api_key TEXT NOT NULL DEFAULT '';`),
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_enabled INTEGER NOT NULL DEFAULT 1;`)
+			]);
+		} catch (e) {
+			console.error(e)
+		}
 	},
 
 	async v2_4DB(c) {

@@ -46,6 +46,10 @@ export const setting = sqliteTable('setting', {
 	tgMsgFrom: text('tg_msg_from').default('only-name').notNull(),
 	tgMsgTo: text('tg_msg_to').default('show').notNull(),
 	tgMsgText: text('tg_msg_text').default('hide').notNull(),
-	minEmailPrefix: integer('min_email_prefix').default(0).notNull()
+	minEmailPrefix: integer('min_email_prefix').default(0).notNull(),
+	// 翻译服务配置
+	translateProvider: text('translate_provider').default('cloudflare').notNull(), // cloudflare/deepl/google/libre
+	translateApiKey: text('translate_api_key').default('').notNull(),
+	translateEnabled: integer('translate_enabled').default(1).notNull()
 });
 export default setting
