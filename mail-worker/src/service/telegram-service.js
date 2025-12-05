@@ -143,32 +143,82 @@ const telegramService = {
 			return text;
 		}
 
-		// 根据配置选择翻译服务
+		// 尝试从缓存获取
+		const cacheKey = this._generateCacheKey(text, targetLang);
+		if (c.env.kv) {
+			try {
+				const cached = await c.env.kv.get(cacheKey);
+				if (cached) {
+					console.log('[翻译] 使用缓存结果');
+					return cached;
+				}
+			} catch (e) {
+				console.warn('[翻译] 缓存读取失败:', e.message);
+			}
+		}
+
+		// 执行翻译
+		let result;
 		switch (translateProvider) {
 			case 'cloudflare':
-				return await this._translateWithCloudflare(c, text, targetLang);
+				result = await this._translateWithCloudflare(c, text, targetLang);
+				break;
 
 			case 'deepl':
 				if (!translateApiKey) {
 					console.warn('[翻译] DeepL API 密钥未配置，降级到 Cloudflare');
-					return await this._translateWithCloudflare(c, text, targetLang);
+					result = await this._translateWithCloudflare(c, text, targetLang);
+				} else {
+					result = await this._translateWithDeepL(translateApiKey, text, targetLang);
 				}
-				return await this._translateWithDeepL(translateApiKey, text, targetLang);
+				break;
 
 			case 'google':
 				if (!translateApiKey) {
 					console.warn('[翻译] Google API 密钥未配置，降级到 Cloudflare');
-					return await this._translateWithCloudflare(c, text, targetLang);
+					result = await this._translateWithCloudflare(c, text, targetLang);
+				} else {
+					result = await this._translateWithGoogle(translateApiKey, text, targetLang);
 				}
-				return await this._translateWithGoogle(translateApiKey, text, targetLang);
+				break;
 
 			case 'libre':
-				return await this._translateWithLibre(text, targetLang);
+				result = await this._translateWithLibre(text, targetLang);
+				break;
 
 			default:
 				console.log('[翻译] 未知的翻译服务提供商，使用 Cloudflare');
-				return await this._translateWithCloudflare(c, text, targetLang);
+				result = await this._translateWithCloudflare(c, text, targetLang);
 		}
+
+		// 保存到缓存（24小时过期）
+		if (c.env.kv && result && result !== text) {
+			try {
+				await c.env.kv.put(cacheKey, result, { expirationTtl: 86400 });
+				console.log('[翻译] 结果已缓存');
+			} catch (e) {
+				console.warn('[翻译] 缓存写入失败:', e.message);
+			}
+		}
+
+		return result;
+	},
+
+	_generateCacheKey(text, targetLang) {
+		// 生成缓存键：translate:hash:targetLang
+		const hash = this._hashText(text);
+		return `translate:${hash}:${targetLang}`;
+	},
+
+	_hashText(text) {
+		// 简单哈希函数（用于缓存键）
+		let hash = 0;
+		const maxLen = Math.min(text.length, 200);
+		for (let i = 0; i < maxLen; i++) {
+			hash = ((hash << 5) - hash) + text.charCodeAt(i);
+			hash = hash & hash;
+		}
+		return Math.abs(hash).toString(36);
 	},
 
 	async _translateWithCloudflare(c, text, targetLang) {
