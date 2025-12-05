@@ -11,7 +11,7 @@
 
       <!-- 翻译功能 -->
       <div class="translate-actions">
-        <el-select v-if="showTranslateControls" v-model="targetLang" placeholder="选择语言" size="small" class="lang-select">
+        <el-select v-model="targetLang" placeholder="选择语言" size="small" class="lang-select">
           <el-option label="中文" value="zh" />
           <el-option label="English" value="en" />
           <el-option label="日本語" value="ja" />
@@ -219,8 +219,7 @@ async function handleTranslate() {
     originalText.value = email.text
   }
 
-  // 显示语言选择和加载提示
-  showTranslateControls.value = true
+  // 显示加载提示
   translating.value = true
 
   const loading = ElMessage({
@@ -290,7 +289,6 @@ function handleReset() {
     email.text = originalText.value
   }
   isTranslated.value = false
-  showTranslateControls.value = false
 }
 
 const handleDelete = () => {
