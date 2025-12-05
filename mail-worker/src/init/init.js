@@ -32,12 +32,17 @@ const init = {
 	async v2_5DB(c) {
 		try {
 			await c.env.db.batch([
-				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_provider TEXT NOT NULL DEFAULT 'cloudflare';`),
-				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_api_key TEXT NOT NULL DEFAULT '';`),
-				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_enabled INTEGER NOT NULL DEFAULT 1;`)
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_provider TEXT DEFAULT 'cloudflare';`),
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_api_key TEXT DEFAULT '';`),
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_enabled INTEGER DEFAULT 1;`)
 			]);
+			
+			// 确保现有数据有默认值
+			await c.env.db.prepare(`UPDATE setting SET translate_provider = 'cloudflare' WHERE translate_provider IS NULL;`).run();
+			await c.env.db.prepare(`UPDATE setting SET translate_api_key = '' WHERE translate_api_key IS NULL;`).run();
+			await c.env.db.prepare(`UPDATE setting SET translate_enabled = 1 WHERE translate_enabled IS NULL;`).run();
 		} catch (e) {
-			console.error(e)
+			console.error('v2_5DB migration error:', e)
 		}
 	},
 
