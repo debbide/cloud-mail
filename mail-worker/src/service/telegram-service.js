@@ -143,6 +143,16 @@ const telegramService = {
 			return text;
 		}
 
+		// 检测源语言
+		const sourceLang = this._detectLanguage(text);
+		console.log('[翻译] 检测到源语言:', sourceLang);
+
+		// 如果源语言和目标语言相同，跳过翻译
+		if (sourceLang === targetLang) {
+			console.log('[翻译] 源语言和目标语言相同，跳过翻译');
+			return text;
+		}
+
 		// 尝试从缓存获取
 		const cacheKey = this._generateCacheKey(text, targetLang);
 		if (c.env.kv) {
@@ -202,6 +212,30 @@ const telegramService = {
 		}
 
 		return result;
+	},
+
+	_detectLanguage(text) {
+		// 简单的启发式语言检测
+		// 基于字符模式匹配主要语言
+		const sample = text.substring(0, 200);
+
+		const patterns = {
+			zh: /[\u4e00-\u9fa5]/,  // 中文字符
+			ja: /[\u3040-\u309f\u30a0-\u30ff]/,  // 日文假名
+			ko: /[\uac00-\ud7af]/,  // 韩文字符
+			ru: /[\u0400-\u04ff]/   // 俄文字符
+		};
+
+		// 统计各语言特征字符数量
+		for (const [lang, pattern] of Object.entries(patterns)) {
+			const matches = sample.match(new RegExp(pattern, 'g'));
+			if (matches && matches.length > 5) {  // 至少5个特征字符
+				return lang;
+			}
+		}
+
+		// 默认假设为英语
+		return 'en';
 	},
 
 	_generateCacheKey(text, targetLang) {
