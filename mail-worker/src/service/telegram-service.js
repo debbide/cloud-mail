@@ -172,7 +172,7 @@ const telegramService = {
 	},
 
 	async _translateWithCloudflare(c, text, targetLang) {
-		console.log('[翻译] 使用 Cloudflare AI 翻译');
+		console.log('[翻译] 使用 Cloudflare AI 翻译，目标语言:', targetLang);
 		console.log('[翻译] 是否有 AI 绑定:', !!c.env.AI);
 
 		if (!c.env.AI) {
@@ -181,32 +181,43 @@ const telegramService = {
 		}
 
 		try {
+			// Cloudflare AI m2m100 模型语言代码映射
+			const langMap = {
+				'zh': 'chinese',
+				'en': 'english',
+				'ja': 'japanese',
+				'ko': 'korean',
+				'es': 'spanish',
+				'fr': 'french',
+				'de': 'german',
+				'ru': 'russian'
+			};
+
+			const targetLanguage = langMap[targetLang] || 'chinese';
+
 			console.log('[翻译] 输入文本长度:', text.length);
-			console.log('[翻译] 输入文本前50字符:', text.substring(0, 50));
+			console.log('[翻译] 目标语言映射:', targetLang, '->', targetLanguage);
 
 			const response = await c.env.AI.run('@cf/meta/m2m100-1.2b', {
 				text: text,
-				source_lang: 'en',
-				target_lang: 'zh'
+				source_lang: 'english',  // m2m100-1.2b 模型默认源语言
+				target_lang: targetLanguage
 			});
 
-			console.log('[翻译] CF AI 完整响应:', JSON.stringify(response));
-			console.log('[翻译] 响应类型:', typeof response);
-			console.log('[翻译] translated_text 字段:', response?.translated_text);
+			console.log('[翻译] CF AI 响应类型:', typeof response);
 
 			if (response && response.translated_text) {
-				console.log('[翻译] 翻译成功，返回译文');
+				console.log('[翻译] 翻译成功，译文长度:', response.translated_text.length);
 				return response.translated_text;
 			} else {
 				console.error('[翻译] AI 返回的响应中没有 translated_text 字段');
 				throw new Error('AI 响应格式不正确');
 			}
 		} catch (error) {
-			console.error('[翻译] Cloudflare AI 翻译失败 - 错误类型:', error.constructor.name);
-			console.error('[翻译] Cloudflare AI 翻译失败 - 错误消息:', error.message);
-			console.error('[翻译] Cloudflare AI 翻译失败 - 错误堆栈:', error.stack);
-			// 抛出错误而不是静默失败
-			throw new Error(`AI翻译失败: ${error.message}`);
+			console.error('[翻译] Cloudflare AI 翻译失败:', error.message);
+			console.log('[翻译] 自动降级到备用翻译服务');
+			// 自动降级到备用翻译
+			return await this._translateWithLibre(text, targetLang);
 		}
 	},
 
