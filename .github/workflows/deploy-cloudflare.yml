@@ -39,17 +39,21 @@ jobs:
       - name: ➡️ 检出代码仓库 - Checkout repository
         uses: actions/checkout@v4
 
-      - name: 📦 设置 pnpm - Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: 📦 设置 Node.js - Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "pnpm"
-          cache-dependency-path: "./mail-worker/pnpm-lock.yaml"
+
+      - name: 📦 安装 pnpm - Install pnpm
+        run: npm install -g pnpm@9
+
+      - name: 💾 缓存 pnpm 依赖 - Cache pnpm dependencies  
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: 📥 安装依赖 - Install dependencies
         run: pnpm install --frozen-lockfile
