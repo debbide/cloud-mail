@@ -8,6 +8,10 @@ on:
       - "mail-vue/**"
   workflow_dispatch:
 
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Deploy-cloud-mail:
     name: 🏗️ Build and Deploy
@@ -59,6 +63,10 @@ jobs:
         id: deploy
         working-directory: ./mail-worker
         run: |
+          echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$LINUXDO_CLIENT_SECRET"
+          echo "::add-mask::$CLOUDFLARE_API_TOKEN"
+          
           if [ -z "$D1_DATABASE_ID" ] || [ -z "$KV_NAMESPACE_ID" ]; then
             echo "⚠️ Required secrets (D1_DATABASE_ID or KV_NAMESPACE_ID) are not set."
             echo "❌ Skipping deployment."
