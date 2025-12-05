@@ -1,6 +1,6 @@
 import settingService from '../service/setting-service';
 import emailUtils from '../utils/email-utils';
-import {emailConst} from "../const/entity-const";
+import { emailConst } from "../const/entity-const";
 import { t } from '../i18n/i18n'
 
 const init = {
@@ -31,13 +31,28 @@ const init = {
 
 	async v2_5DB(c) {
 		try {
-			await c.env.db.batch([
-				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_provider TEXT DEFAULT 'cloudflare';`),
-				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_api_key TEXT DEFAULT '';`),
-				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_enabled INTEGER DEFAULT 1;`)
-			]);
-			
-			// 确保现有数据有默认值
+			// 检查列是否已存在
+			const columns = await c.env.db.prepare(`SELECT * FROM pragma_table_info('setting') WHERE name IN ('translate_provider', 'translate_api_key', 'translate_enabled')`).all();
+			const existingColumns = new Set(columns.results.map(col => col.name));
+
+			const alterStatements = [];
+
+			if (!existingColumns.has('translate_provider')) {
+				alterStatements.push(c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_provider TEXT DEFAULT 'cloudflare';`));
+			}
+			if (!existingColumns.has('translate_api_key')) {
+				alterStatements.push(c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_api_key TEXT DEFAULT '';`));
+			}
+			if (!existingColumns.has('translate_enabled')) {
+				alterStatements.push(c.env.db.prepare(`ALTER TABLE setting ADD COLUMN translate_enabled INTEGER DEFAULT 1;`));
+			}
+
+			// 只执行需要的 ALTER TABLE 语句
+			if (alterStatements.length > 0) {
+				await c.env.db.batch(alterStatements);
+			}
+
+			// 确保现有数据有默认值（无论列是新增还是已存在）
 			await c.env.db.prepare(`UPDATE setting SET translate_provider = 'cloudflare' WHERE translate_provider IS NULL;`).run();
 			await c.env.db.prepare(`UPDATE setting SET translate_api_key = '' WHERE translate_api_key IS NULL;`).run();
 			await c.env.db.prepare(`UPDATE setting SET translate_enabled = 1 WHERE translate_enabled IS NULL;`).run();
@@ -275,7 +290,7 @@ const init = {
 
 	},
 
-	async v1_2DB(c){
+	async v1_2DB(c) {
 
 		const ADD_COLUMN_SQL_LIST = [
 			`ALTER TABLE email ADD COLUMN recipient TEXT NOT NULL DEFAULT '[]';`,
@@ -360,7 +375,7 @@ const init = {
       )
     `).run();
 
-		const {permTotal} = await c.env.db.prepare(`SELECT COUNT(*) as permTotal FROM perm`).first();
+		const { permTotal } = await c.env.db.prepare(`SELECT COUNT(*) as permTotal FROM perm`).first();
 
 		if (permTotal === 0) {
 			await c.env.db.prepare(`
@@ -436,7 +451,7 @@ const init = {
       )
     `).run();
 
-		const {rolePermCount} = await c.env.db.prepare(`SELECT COUNT(*) as rolePermCount FROM role_perm`).first();
+		const { rolePermCount } = await c.env.db.prepare(`SELECT COUNT(*) as rolePermCount FROM role_perm`).first();
 		if (rolePermCount === 0) {
 			await c.env.db.prepare(`
         INSERT INTO role_perm (id, role_id, perm_id) VALUES
@@ -554,13 +569,13 @@ const init = {
 		}
 
 		const queryList = []
-		const {results} = await c.env.db.prepare('SELECT receive_email,email_id FROM email').all();
+		const { results } = await c.env.db.prepare('SELECT receive_email,email_id FROM email').all();
 		results.forEach(emailRow => {
 			const recipient = {}
 			recipient.address = emailRow.receive_email
 			recipient.name = ''
 			const recipientStr = JSON.stringify([recipient]);
-			const sql = c.env.db.prepare('UPDATE email SET recipient = ? WHERE email_id = ?').bind(recipientStr,emailRow.email_id);
+			const sql = c.env.db.prepare('UPDATE email SET recipient = ? WHERE email_id = ?').bind(recipientStr, emailRow.email_id);
 			queryList.push(sql)
 		})
 
@@ -582,11 +597,11 @@ const init = {
 
 		queryList.push(c.env.db.prepare(`ALTER TABLE account ADD COLUMN name TEXT NOT NULL DEFAULT ''`));
 
-		const {results} = await c.env.db.prepare(`SELECT account_id, email FROM account`).all();
+		const { results } = await c.env.db.prepare(`SELECT account_id, email FROM account`).all();
 
 		results.forEach(accountRow => {
 			const name = emailUtils.getName(accountRow.email);
-			const sql = c.env.db.prepare('UPDATE account SET name = ? WHERE account_id = ?').bind(name,accountRow.account_id);
+			const sql = c.env.db.prepare('UPDATE account SET name = ? WHERE account_id = ?').bind(name, accountRow.account_id);
 			queryList.push(sql)
 		})
 
