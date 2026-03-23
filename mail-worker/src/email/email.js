@@ -49,6 +49,11 @@ export async function email(message, env, ctx) {
 		const account = await accountService.selectByEmailIncludeDel({ env: env }, message.to);
 
 		if (!account && noRecipient === settingConst.noRecipient.CLOSE) {
+			if (canForwardByRule(forwardStatus, forwardEmail, ruleType, ruleEmail, message.to)) {
+				await forwardToOtherEmail(message, forwardEmail);
+				return;
+			}
+
 			message.setReject('Recipient not found');
 			return;
 		}
@@ -163,14 +168,8 @@ export async function email(message, env, ctx) {
 		emailRow = await emailService.completeReceive({ env }, account ? emailConst.status.RECEIVE : emailConst.status.NOONE, emailRow.emailId);
 
 
-		if (ruleType === settingConst.ruleType.RULE) {
-
-			const emails = ruleEmail.split(',');
-
-			if (!emails.includes(message.to)) {
-				return;
-			}
-
+		if (!matchForwardRule(ruleType, ruleEmail, message.to)) {
+			return;
 		}
 
 		//转发到TG
@@ -180,25 +179,44 @@ export async function email(message, env, ctx) {
 
 		//转发到其他邮箱
 		if (forwardStatus === settingConst.forwardStatus.OPEN && forwardEmail) {
-
-			const emails = forwardEmail.split(',');
-
-			await Promise.all(emails.map(async email => {
-
-				try {
-					await message.forward(email);
-				} catch (e) {
-					console.error(`转发邮箱 ${email} 失败：`, e);
-				}
-
-			}));
-
+			await forwardToOtherEmail(message, forwardEmail);
 		}
 
 	} catch (e) {
 
 		console.error('邮件接收异常: ', e);
 	}
+}
+
+function matchForwardRule(ruleType, ruleEmail, currentEmail) {
+	if (ruleType !== settingConst.ruleType.RULE) {
+		return true;
+	}
+
+	const emails = ruleEmail.split(',').map(item => item.trim()).filter(item => item);
+	return emails.includes(currentEmail);
+}
+
+function canForwardByRule(forwardStatus, forwardEmail, ruleType, ruleEmail, currentEmail) {
+	if (forwardStatus !== settingConst.forwardStatus.OPEN || !forwardEmail) {
+		return false;
+	}
+
+	return matchForwardRule(ruleType, ruleEmail, currentEmail);
+}
+
+async function forwardToOtherEmail(message, forwardEmail) {
+	const emails = forwardEmail.split(',').map(item => item.trim()).filter(item => item);
+
+	await Promise.all(emails.map(async email => {
+
+		try {
+			await message.forward(email);
+		} catch (e) {
+			console.error(`转发邮箱 ${email} 失败：`, e);
+		}
+
+	}));
 }
 
 function banEmailHandler(banEmailType, message, email) {
